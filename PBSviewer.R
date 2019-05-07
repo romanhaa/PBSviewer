@@ -6,7 +6,7 @@ shinyApp(
     dashboardSidebar(
       sidebarMenu(
         tags$head(tags$style(HTML(".content-wrapper {overflow-x: scroll;}"))),
-        menuItem("Refresh", tabName = "refresh", icon = icon("dashboard")),
+        menuItem("Load data", tabName = "load_data", icon = icon("dashboard")),
         menuItem("Jobs", tabName = "jobs", icon = icon("dashboard"), selected = TRUE),
         menuItem("Nodes", tabName = "nodes", icon = icon("th"))
       )
@@ -15,11 +15,26 @@ shinyApp(
       tags$script(HTML('$("body").addClass("fixed");')),
       tags$style(HTML(".box.box-solid.box-primary> .box-header { background: #f39c12; } .box.box-solid.box-primary { border-bottom-color: #848484; border-left-color: #848484; border-right-color: #848484; border-top-color: #848484; }")),
       tabItems(
-        tabItem(tabName = "refresh",
+        tabItem(tabName = "load_data",
           fluidPage(
             fluidRow(
               column(12,
-                actionButton("refresh_button", "Refresh data")
+                textInput(
+                  "user",
+                  label = "User",
+                  value = "",
+                  placeholder = "Insert user name here."
+                ),
+                textInput(
+                  "host",
+                  label = "Host",
+                  value = "",
+                  placeholder = "Insert host address here."
+                ),
+                actionButton(
+                  "button_load_data",
+                  "Load data"
+                )
               )
             )
           )
@@ -73,11 +88,21 @@ shinyApp(
   ),
   server = function(input, output, session) {
     
-    data <- reactiveVal(list(jobs = getJobDetails_data, nodes = getNodeDetails_data))
+    data <- reactiveVal(
+      list(
+        jobs = getJobDetails_data,
+        nodes = getNodeDetails_data
+      )
+    )
     
-    observeEvent(input[["refresh_button"]], {
-      print("Refresh data...")
-      data(list(jobs = getJobDetails_data, nodes = getNodeDetails_data))
+    observeEvent(input[["button_load_data"]], {
+      message("Load data...")
+      data(
+        list(
+          jobs = getJobDetails(input[["user"]], input[["host"]]),
+          nodes = getNodeDetails(input[["user"]], input[["host"]])
+        )
+      )
     })
 
     jobs_color_status <- function(x) {
@@ -192,7 +217,6 @@ shinyApp(
 
     output[["jobs_n_cpu_over_memory"]] <- plotly::renderPlotly({
       to_plot <- data()[["jobs"]] %>%
-      # to_plot <- getJobDetails_data %>%
         dplyr::select(id, name, user, n_cpu_requested, n_cpu_used, mem_requested, mem_used, mem_used_not_formatted) %>%
         dplyr::mutate(
           n_cpu_used = as.numeric(n_cpu_used),
@@ -233,13 +257,13 @@ shinyApp(
           title = "Used memory [GB]",
           mirror = TRUE,
           showline = TRUE,
-          zeroline = FALSE
+          zeroline = TRUE
         ),
         yaxis = list(
           title = "Used number of CPUs",
           mirror = TRUE,
           showline = TRUE,
-          zeroline = FALSE
+          zeroline = TRUE
         ),
         hoverlabel = list(font = list(size = 12)),
         showlegend = FALSE

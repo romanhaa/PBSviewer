@@ -8,18 +8,36 @@ jobs_format_memory <- function(x) {
   
 }
 
-getJobDetails <- function() {
+getWidths <- function(x) {
+  
+}
+
+getJobDetails <- function(user, host) {
+  
+  message(paste0(Sys.time(), " - Run getJobDetails()"))
+  
+  user <- trimws(user)
+  host <- trimws(host)
+  
+  message(paste0(Sys.time(), " - User: ", user))
+  message(paste0(Sys.time(), " - Host: ", host))
+
   message(paste0(Sys.time(), " - Step 1: Get list of jobs"))
+
   job_list <- read.fwf(
-    pipe("ssh -Y ieo4169@hpcfe01.ieo.it /opt/pbs/bin/qstat"),
-    skip = 2,
-    widths = c(18),
-    col.names = c("id"),
+    pipe(paste0("ssh -Y ", user, "@", host, " /opt/pbs/bin/qstat")),
+    widths = c(80),
     stringsAsFactors = FALSE
   )
-  message(paste0(Sys.time(), " - Step 1: Done."))
+
+  row <- grep(job_list[,1], pattern = "--------")
+  temp <- gsub(job_list[row,1], pattern = "  ", replacement = "- ")
+  temp <- as.vector(gregexpr(temp, pattern = " ")[[1]])
+  job_list <- job_list[(row+1):nrow(job_list),]
+  job_list <- substr(job_list, 1, temp[1])
+  job_list <- trimws(job_list)
   
-  job_list <- trimws(job_list[,1])
+  message(paste0(Sys.time(), " - Step 1: Done."))
   
   job_details <- data.frame(
     "id" = character(),
@@ -46,7 +64,12 @@ getJobDetails <- function() {
   temp_data <- parallel::mclapply(
     job_list,
     FUN = function(x) {
-      c <- read.fwf(pipe(paste0("ssh -Y ieo4169@hpcfe01.ieo.it /opt/pbs/bin/qstat -f ", x)), skip = 1, widths = c(80), stringsAsFactors = FALSE)
+      c <- read.fwf(
+        pipe(paste0("ssh -Y ", user, "@", host, " /opt/pbs/bin/qstat -f ", x)),
+        skip = 1,
+        widths = c(80),
+        stringsAsFactors = FALSE
+      )
     },
     mc.cores = parallel::detectCores()-1,
     mc.preschedule = TRUE
@@ -216,11 +239,41 @@ getJobDetails <- function() {
   return(job_details)
 }
 
-getNodeDetails <- function() {
+getNodeDetails <- function(user, host) {
+  
+  message(paste0(Sys.time(), " - Run getNodeDetails()"))
+  
+  user <- trimws(user)
+  host <- trimws(host)
+  
+  message(paste0(Sys.time(), " - User: ", user))
+  message(paste0(Sys.time(), " - Host: ", host))
+
   node_list <- read.fwf(
-    pipe("ssh -Y ieo4169@hpcfe01.ieo.it /opt/pbs/bin/pbsnodes -aSj"),
-    skip = 3,
-    widths = c(16,16,7,6,7,13,8,8,8,400),
+    pipe(paste0("ssh -Y ", user, "@", host, " /opt/pbs/bin/pbsnodes -aSj")),
+    widths = c(500),
+    stringsAsFactors = FALSE
+  )
+  
+  row <- grep(node_list[,1], pattern = "--------")
+  temp <- gsub(node_list[row,1], pattern = "  ", replacement = "- ")
+  temp <- as.vector(gregexpr(temp, pattern = " ")[[1]])
+  
+  widths <- rep(NA, length(temp)+1)
+  for ( i in 1:length(widths) ) {
+    if ( i == 1 ) {
+      widths[i] <- temp[i]
+    } else if ( i < length(widths) ) {
+      widths[i] <- temp[i] - temp[i-1]
+    } else {
+      widths[i] <- 400
+    }
+  }
+
+  node_list <- read.fwf(
+    pipe(paste0("ssh -Y ", user, "@", host, " /opt/pbs/bin/pbsnodes -aSj")),
+    skip = row,
+    widths = widths,
     col.names = c(
       "node","state","n_jobs","jobs_running","jobs_suspended","memory_free",
       "n_cpus_free","n_mics","n_gpus","jobs"
@@ -242,6 +295,7 @@ getNodeDetails <- function() {
   
   x <- node_list$n_cpus_free
   n_cpus_scale <- x
+  
   for ( i in 1:length(n_cpus_scale) ) {
     values <- strsplit(x[i], split = "/")[[1]]
     n_cpus_scale[i] <- as.double(values[1]) / as.double(values[2])
@@ -261,5 +315,5 @@ getNodeDetails <- function() {
   return(node_list)
 }
 
-getJobDetails_data <- getJobDetails()
-getNodeDetails_data <- getNodeDetails()
+getJobDetails_data <- getJobDetails("ieo4169", "hpcfe01.ieo.it")
+getNodeDetails_data <- getNodeDetails("ieo4169", "hpcfe01.ieo.it")
