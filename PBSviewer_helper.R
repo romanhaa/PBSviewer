@@ -345,6 +345,3 @@ getNodeDetails <- function(user, host) {
   
   return(node_list)
 }
-
-getJobDetails_data <- getJobDetails("ieo4169", "hpcfe01.ieo.it")
-getNodeDetails_data <- getNodeDetails("ieo4169", "hpcfe01.ieo.it")

@@ -112,7 +112,9 @@ shinyApp(
           colors[i] <- "green"
         } else if ( x[i] == "E" ) {
           colors[i] <- "red"
-        }    
+        } else if ( x[i] == "Q" ) {
+          colors[i] <- "blue"
+        }
       }
       return(colors)
     }
