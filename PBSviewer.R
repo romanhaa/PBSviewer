@@ -90,8 +90,8 @@ shinyApp(
     
     data <- reactiveVal(
       list(
-        jobs = getJobDetails_data,
-        nodes = getNodeDetails_data
+        jobs = readRDS("getJobDetails_data.rds"),
+        nodes = readRDS("getNodeDetails_data.rds")
       )
     )
     
