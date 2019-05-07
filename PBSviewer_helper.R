@@ -66,8 +66,8 @@ getJobDetails <- function(user, host) {
     FUN = function(x) {
       c <- read.fwf(
         pipe(paste0("ssh -Y ", user, "@", host, " /opt/pbs/bin/qstat -f ", x)),
-        skip = 1,
-        widths = c(80),
+        skip = 0,
+        widths = c(500),
         stringsAsFactors = FALSE
       )
     },
@@ -75,69 +75,100 @@ getJobDetails <- function(user, host) {
     mc.preschedule = TRUE
   )
   message(paste0(Sys.time(), " - Step 2: Done."))
-  
+
+  job_names <- rep(NA, length(temp_data))
+
+  for ( i in 1:length(temp_data) ) {
+    position_of_variable_List <- grep(temp_data[[i]][,1], pattern = "Variable_List")
+    temp_data[[i]] <- temp_data[[i]][1:position_of_variable_List,]
+    temp_data[[i]] <- trimws(temp_data[[i]])
+    job_names[i] <- gsub(temp_data[[i]][1], pattern = "Job Id: ", replacement = "")
+    temp_data[[i]] <- temp_data[[i]][-1]
+    temp_data[[i]] <- data.frame(
+      do.call(
+        "rbind",
+        strsplit(
+          temp_data[[i]],
+          " = ",
+          fixed = TRUE
+        )
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  names(temp_data) <- job_names
+
   message(paste0(Sys.time(), " - Step 3: Parse details for each job..."))
   for ( i in 1:length(temp_data) ) {
-    temp_job_id <- job_list[i]
+    temp_job_id <- names(temp_data)[i]
     message(temp_job_id)
-    
+
     temp_id <- gsub(temp_job_id, pattern = "\\.hpcfe01", replacement = "")
     temp_id <- as.numeric(gsub(temp_id, pattern = "[^0-9.-]", replacement = ""))
-    
+
     data_this_job <- temp_data[[i]]
-    temp <- data_this_job[1:33,]
-    temp <- trimws(temp)
-    temp <- data.frame(do.call("rbind", strsplit(as.character(temp), " = ", fixed = TRUE)), stringsAsFactors = FALSE)
-    temp[,1] <- trimws(temp[,1])
-    temp[,2] <- trimws(temp[,2])
+
+    #
+    temp_job_owner <- strsplit(
+      data_this_job[which(data_this_job[,1] == "Job_Owner"),2],
+      "@",
+      fixed = TRUE
+    )[[1]][1]
     
     #
-    temp_job_owner <- strsplit(temp[which(temp[,1] == "Job_Owner"), 2], "@", fixed = TRUE)[[1]][1]
+    temp_server <- gsub(
+      data_this_job[which(data_this_job[,1] == "server"),2],
+      pattern = ".cluster.loc",
+      replacement = ""
+    )
     
     #
-    temp_server <- gsub(temp[which(temp[,1] == "server"), 2], pattern = ".cluster.loc", replacement = "")
+    temp_date_submitted <- as.character(
+      strptime(
+        data_this_job[which(data_this_job[,1] == "ctime"),2],
+        format="%a %B %d %H:%M:%S %Y"
+      )
+    )
     
     #
-    temp_date_submitted <- as.character(strptime(temp[which(temp[,1] == "ctime"), 2], format="%a %B %d %H:%M:%S %Y"))
-    
-    #
-    if ( "resources_used.walltime" %in% temp[,1] ) {
-      temp_resources_walltime <- temp[which(temp[,1] == "resources_used.walltime"),2]
+    if ( "resources_used.walltime" %in% data_this_job[,1] ) {
+      temp_resources_walltime <- data_this_job[which(data_this_job[,1] == "resources_used.walltime"),2]
     } else {
       temp_resources_walltime <- NA
     }
     
     #
-    if ( "resources_used.cput" %in% temp[,1] ) {
-      temp_resources_cpu_time_used <- temp[which(temp[,1] == "resources_used.cput"),2]
+    if ( "resources_used.cput" %in% data_this_job[,1] ) {
+      temp_resources_cpu_time_used <- data_this_job[which(data_this_job[,1] == "resources_used.cput"),2]
     } else {
       temp_resources_cpu_time_used <- NA
     }
     
     #
-    if ( "resources_used.cpupercent" %in% temp[,1] ) {
-      temp_resources_cpu_percent <- as.numeric(temp[which(temp[,1] == "resources_used.cpupercent"),2])
+    if ( "resources_used.cpupercent" %in% data_this_job[,1] ) {
+      temp_resources_cpu_percent <- as.numeric(data_this_job[which(data_this_job[,1] == "resources_used.cpupercent"),2])
     } else {
       temp_resources_cpu_percent <- NA
     }
     
     #
-    if ( "Resource_List.ncpus" %in% temp[,1] ) {
-      temp_resources_n_cpus_requested <- as.numeric(temp[which(temp[,1] == "Resource_List.ncpus"),2])
+    if ( "Resource_List.ncpus" %in% data_this_job[,1] ) {
+      temp_resources_n_cpus_requested <- as.numeric(data_this_job[which(data_this_job[,1] == "Resource_List.ncpus"),2])
     } else {
       temp_resources_n_cpus_requested <- 0
     }
     
     #
-    if ( "resources_used.ncpus" %in% temp[,1] ) {
-      temp_resources_n_cpus_used <- as.numeric(temp[which(temp[,1] == "resources_used.ncpus"),2])
+    if ( "resources_used.ncpus" %in% data_this_job[,1] ) {
+      temp_resources_n_cpus_used <- as.numeric(data_this_job[which(data_this_job[,1] == "resources_used.ncpus"),2])
     } else {
       temp_resources_n_cpus_used <- 0
     }
     
     #
-    if ( "Resource_List.mem" %in% temp[,1] ) {
-      x <- temp[which(temp[,1] == "Resource_List.mem"),2]
+    if ( "Resource_List.mem" %in% data_this_job[,1] ) {
+      x <- data_this_job[which(data_this_job[,1] == "Resource_List.mem"),2]
       y <- x
       if ( grepl(x, pattern = "kb") ) {
         y <- as.numeric(gsub(x, pattern = "kb", replacement = "000"))
@@ -157,8 +188,8 @@ getJobDetails <- function(user, host) {
     }
     
     #
-    if ( "resources_used.mem" %in% temp[,1] ) {
-      x <- temp[which(temp[,1] == "resources_used.mem"),2]
+    if ( "resources_used.mem" %in% data_this_job[,1] ) {
+      x <- data_this_job[which(data_this_job[,1] == "resources_used.mem"),2]
       if ( grepl(x, pattern = "kb") ) {
         y <- as.numeric(gsub(x, pattern = "kb", replacement = "000"))
         x <- utils:::format.object_size(as.numeric(gsub(x, pattern = "kb", replacement = "000")), "auto")
@@ -177,8 +208,8 @@ getJobDetails <- function(user, host) {
     }
     
     #
-    if ( "resources_used.vmem" %in% temp[,1] ) {
-      x <- temp[which(temp[,1] == "resources_used.vmem"),2]
+    if ( "resources_used.vmem" %in% data_this_job[,1] ) {
+      x <- data_this_job[which(data_this_job[,1] == "resources_used.vmem"),2]
       if ( grepl(x, pattern = "kb") ) {
         y <- as.numeric(gsub(x, pattern = "kb", replacement = "000"))
         x <- utils:::format.object_size(as.numeric(gsub(x, pattern = "kb", replacement = "000")), "auto")
@@ -197,8 +228,8 @@ getJobDetails <- function(user, host) {
     }
     
     #
-    if ( "exec_host" %in% temp[,1] ) {
-      temp_executing_host <- strsplit(temp[which(temp[,1] == "exec_host"),2], split = "/")[[1]][1]
+    if ( "exec_host" %in% data_this_job[,1] ) {
+      temp_executing_host <- strsplit(data_this_job[which(data_this_job[,1] == "exec_host"),2], split = "/")[[1]][1]
     } else {
       temp_executing_host <- NA
     }
@@ -206,10 +237,10 @@ getJobDetails <- function(user, host) {
     #
     temp_details <- data.frame(
       "id" = temp_id,
-      "name" = temp[which(temp[,1] == "Job_Name"), 2],
+      "name" = data_this_job[which(data_this_job[,1] == "Job_Name"), 2],
       "user" = temp_job_owner,
-      "status" = temp[which(temp[,1] == "job_state"), 2],
-      "queue" = temp[which(temp[,1] == "queue"), 2],
+      "status" = data_this_job[which(data_this_job[,1] == "job_state"), 2],
+      "queue" = data_this_job[which(data_this_job[,1] == "queue"), 2],
       "server" = temp_server,
       "date_submitted" = temp_date_submitted,
       "walltime" = temp_resources_walltime,
