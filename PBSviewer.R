@@ -724,9 +724,6 @@ shinyApp(
   }
 )
 
-# * make functions faster
-# * dummy data set for testing and sharing
-# * allow to select multiple nodes?
 
 
 
