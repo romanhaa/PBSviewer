@@ -626,7 +626,7 @@ shinyApp(
           markers <- list(size = 10, opacity = 0.5)
         } else {
           style <- "lines+markers"
-          markers <- list(size = 3, opacity = 0.5)
+          markers <- list(size = 5, opacity = 0.5)
         }
         plotly::plot_ly(
           to_plot,
@@ -676,12 +676,12 @@ shinyApp(
         } else {
           to_plot <- data_nodes_time_series$data
         }
-        if ( length(unique(to_plot$time)) <= 2 ) {
+        if ( length(unique(to_plot$time)) <= 20 ) {
           style <- "lines+markers"
           markers <- list(size = 10, opacity = 0.5)
         } else {
           style <-  "lines+markers"
-          markers <- list(size = 3, opacity = 0.5)
+          markers <- list(size = 5, opacity = 0.5)
         }
         plotly::plot_ly(
           to_plot,
