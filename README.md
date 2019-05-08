@@ -2,6 +2,12 @@
 
 Shiny app that can visualize details of PBS job scheduler.
 
+Download/clone repository, navigate inside the main folder and run:
+
+```r
+runApp("PBSviewer.R")
+```
+
 Might be adaptable to similar job scheduler with some work.
 
 # Expected data from scheduler
