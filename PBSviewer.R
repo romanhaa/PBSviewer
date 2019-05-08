@@ -1,3 +1,4 @@
+source("PBSviewer_helper.R")
 
 shinyApp(
   ui = dashboardPage(
@@ -80,6 +81,22 @@ shinyApp(
               width = 12,
               collapsible = TRUE,
               plotlyOutput("jobs_memory")
+            ),
+            box(
+              title = p("Free CPUs in time", style = "padding-right: 5px; display: inline"),
+              status = "primary",
+              solidHeader = TRUE,
+              width = 12,
+              collapsible = TRUE,
+              plotlyOutput("jobs_n_cpus_free_in_time")
+            ),
+            box(
+              title = p("Free memory in time", style = "padding-right: 5px; display: inline"),
+              status = "primary",
+              solidHeader = TRUE,
+              width = 12,
+              collapsible = TRUE,
+              plotlyOutput("jobs_memory_free_in_time")
             )
           )
         )
@@ -87,22 +104,89 @@ shinyApp(
     )
   ),
   server = function(input, output, session) {
-    
-    data <- reactiveVal(
-      list(
-        jobs = readRDS("getJobDetails_data.rds"),
-        nodes = readRDS("getNodeDetails_data.rds")
+
+    getPalette <- colorRampPalette(RColorBrewer::brewer.pal(9, "Set1"))
+
+    data_jobs <- reactiveValues(data = readRDS("getJobDetails_data.rds"))
+    data_nodes <- reactiveValues(data = readRDS("getNodeDetails_data.rds"))
+    data_nodes_n_cpu_in_time_temp <- reactiveValues(data = data.frame(
+      "time" = as.POSIXct(character()),
+      "node" = character(),
+      "value" = numeric(),
+      stringsAsFactors = FALSE
+    ))
+    data_nodes_n_cpu_in_time <- reactiveValues(data = data.frame(
+      "time" = as.POSIXct(character()),
+      "node" = character(),
+      "value" = numeric(),
+      stringsAsFactors = FALSE
+    ))
+    data_nodes_memory_in_time_temp <- reactiveValues(data = data.frame(
+      "time" = as.POSIXct(character()),
+      "node" = character(),
+      "value" = numeric(),
+      stringsAsFactors = FALSE
+    ))
+    data_nodes_memory_in_time <- reactiveValues(data = data.frame(
+      "time" = as.POSIXct(character()),
+      "node" = character(),
+      "value" = numeric(),
+      stringsAsFactors = FALSE
+    ))
+
+    observe({
+      req(
+        input[["user"]],
+        input[["host"]]
       )
-    )
-    
+      invalidateLater(60*1000, session)
+      if ( testConnection(input[["user"]],input[["host"]]) != 255 ) {
+        message(paste0(Sys.time(), " - Refresh data for jobs..."))
+        progress <- shiny::Progress$new()
+        on.exit(progress$close())
+        progress$set(message = "Collecting new data... please have some patience.", value = 0)
+        data_jobs$data <- getJobDetails(input[["user"]], input[["host"]])
+        progress$inc(1, detail = "Done!")
+      }
+    })
+
+    observe({
+      req(
+        input[["user"]],
+        input[["host"]]
+      )
+      invalidateLater(60*1000, session)
+      if ( testConnection(input[["user"]],input[["host"]]) != 255 ) {
+        message(paste0(Sys.time(), " - Refresh data for nodes..."))
+        progress <- shiny::Progress$new()
+        on.exit(progress$close())
+        progress$set(message = "Collecting new data... please have some patience.", value = 0)
+        data_nodes$data <- getNodeDetails(input[["user"]], input[["host"]])
+        data_nodes_n_cpu_in_time_temp$data <- getNewTimePointCPU(data_nodes$data)
+        data_nodes_memory_in_time_temp$data <- getNewTimePointMemory(data_nodes$data)
+      }
+    })
+
     observeEvent(input[["button_load_data"]], {
-      message("Load data...")
-      data(
-        list(
-          jobs = getJobDetails(input[["user"]], input[["host"]]),
-          nodes = getNodeDetails(input[["user"]], input[["host"]])
-        )
+      req(
+        input[["user"]],
+        input[["host"]]
       )
+      if ( testConnection(input[["user"]],input[["host"]]) != 255 ) {
+        message(paste0(Sys.time(), " - Load data..."))
+        progress <- shiny::Progress$new()
+        on.exit(progress$close())
+        progress$set(message = "Collecting data... please have some patience.", value = 0)
+        data_jobs$data <- getJobDetails(input[["user"]], input[["host"]])
+        data_nodes$data <- getNodeDetails(input[["user"]], input[["host"]])
+        progress$inc(1, detail = "Done!")
+      }
+    })
+
+    observe({
+      message(paste0(Sys.time(), " - Refresh data for time series..."))
+      data_nodes_n_cpu_in_time$data <- rbind(isolate(data_nodes_n_cpu_in_time$data), data_nodes_n_cpu_in_time_temp$data)
+      data_nodes_memory_in_time$data <- rbind(isolate(data_nodes_memory_in_time$data), data_nodes_memory_in_time_temp$data)
     })
 
     jobs_color_status <- function(x) {
@@ -135,7 +219,7 @@ shinyApp(
     
     output[["jobs"]] <- DT::renderDataTable({
       table <- formattable(
-        data()[["jobs"]],
+        data_jobs$data,
         list(
           "status" = formatter("span", style = x ~ formattable::style(color = jobs_color_status(x))),
           "queue" = formatter("span", style = x ~ formattable::style(color = jobs_color_queue(x))),
@@ -146,7 +230,7 @@ shinyApp(
                 display            = "block",
                 padding            = "0 4px",
                 `border-radius`    = "4px",
-                `background-color` = csscolor(gradient(as.numeric(data()[["jobs"]]$mem_requested_not_formatted), "white", "pink"))
+                `background-color` = csscolor(gradient(as.numeric(data_jobs$data$mem_requested_not_formatted), "white", "pink"))
               )
             }
           ),
@@ -157,7 +241,7 @@ shinyApp(
                 display            = "block",
                 padding            = "0 4px",
                 `border-radius`    = "4px",
-                `background-color` = csscolor(gradient(as.numeric(data()[["jobs"]]$mem_used_not_formatted), "white", "pink"))
+                `background-color` = csscolor(gradient(as.numeric(data_jobs$data$mem_used_not_formatted), "white", "pink"))
               )
             }
           ),
@@ -168,7 +252,7 @@ shinyApp(
                 display            = "block",
                 padding            = "0 4px",
                 `border-radius`    = "4px",
-                `background-color` = csscolor(gradient(as.numeric(data()[["jobs"]]$vmem_used_not_formatted), "white", "pink"))
+                `background-color` = csscolor(gradient(as.numeric(data_jobs$data$vmem_used_not_formatted), "white", "pink"))
               )
             }
           )
@@ -202,11 +286,11 @@ shinyApp(
         textAlign = "left"
       ) %>%
       DT::formatStyle(
-        columns = c("cpu_time_used", "n_cpu_requested", "n_cpu_used", "mem_requested", "mem_used", "vmem_used", "mem_requested_not_formatted", "mem_used_not_formatted", "vmem_used_not_formatted"),
+        columns = c("cpu_time_used", "cpu_percent", "n_cpu_requested", "n_cpu_used", "mem_requested", "mem_used", "vmem_used", "mem_requested_not_formatted", "mem_used_not_formatted", "vmem_used_not_formatted"),
         textAlign = "right"
       ) %>%
       DT::formatStyle(
-        columns = colnames(data()[["jobs"]]), fontSize = "85%"
+        columns = colnames(data_jobs$data), fontSize = "85%"
       )
 
       table$x$data$id <- as.numeric(table$x$data$id)
@@ -218,7 +302,7 @@ shinyApp(
     })
 
     output[["jobs_n_cpu_over_memory"]] <- plotly::renderPlotly({
-      to_plot <- data()[["jobs"]] %>%
+      to_plot <- data_jobs$data %>%
         dplyr::select(id, name, user, n_cpu_requested, n_cpu_used, mem_requested, mem_used, mem_used_not_formatted) %>%
         dplyr::mutate(
           n_cpu_used = as.numeric(n_cpu_used),
@@ -234,9 +318,10 @@ shinyApp(
         x = ~mem_used_not_formatted,
         y = ~n_cpu_used,
         color = ~user,
+        colors = getPalette(length(unique(to_plot$user))),
         marker = list(
-          size = 10,
-          alpha = 0.5,
+          size = 15,
+          opacity = 0.5,
           line = list(
             color = "black",
             width = 2
@@ -273,7 +358,7 @@ shinyApp(
     })
     
     nodes_n_cpus_scale = function(x) {
-      x <- data()[["nodes"]]$n_cpus_free
+      x <- data_nodes$data$n_cpus_free
       out <- x
       for ( i in 1:length(out) ) {
         values <- strsplit(x[i], split = "/")[[1]]
@@ -283,7 +368,7 @@ shinyApp(
     }
     
     nodes_memory_scale = function(x) {
-      x <- gsub(data()[["nodes"]]$memory_free, pattern = "gb", replacement = "")
+      x <- gsub(data_nodes$data$memory_free, pattern = "gb", replacement = "")
       out <- x
       for ( i in 1:length(out) ) {
         values <- strsplit(x[i], split = "/")[[1]]
@@ -293,7 +378,7 @@ shinyApp(
     }
     
     jobs_memory_color = function(x) {
-      x <- gsub(data()[["nodes"]]$memory_free, pattern = "gb", replacement = "")
+      x <- gsub(data_nodes$data$memory_free, pattern = "gb", replacement = "")
       out <- x
       for ( i in 1:length(out) ) {
         values <- strsplit(x[i], split = "/")[[1]]
@@ -303,7 +388,7 @@ shinyApp(
     }
     
     output[["nodes"]] <- DT::renderDataTable({
-      table <- data()[["nodes"]] %>%
+      table <- data_nodes$data %>%
       formattable(
         list(
           "memory_free" = formatter(
@@ -313,7 +398,7 @@ shinyApp(
                 display            = "block",
                 padding            = "0 4px",
                 `border-radius`    = "4px",
-                `background-color` = csscolor(gradient(as.numeric(data()[["nodes"]]$memory_free_scale), "white", "green"))
+                `background-color` = csscolor(gradient(as.numeric(data_nodes$data$memory_free_scale), "white", "green"))
               )
             }
           ),
@@ -324,7 +409,7 @@ shinyApp(
                 display            = "block",
                 padding            = "0 4px",
                 `border-radius`    = "4px",
-                `background-color` = csscolor(gradient(as.numeric(data()[["nodes"]]$n_cpus_scale), "white", "green"))
+                `background-color` = csscolor(gradient(as.numeric(data_nodes$data$n_cpus_scale), "white", "green"))
               )
             }
           )
@@ -358,7 +443,7 @@ shinyApp(
         textAlign = "right"
       ) %>% 
       DT::formatStyle(
-        columns = colnames(data()[["nodes"]]), fontSize = "85%"
+        columns = colnames(data_nodes$data), fontSize = "85%"
       )
 
       table$x$data$n_jobs <- as.numeric(table$x$data$n_jobs)
@@ -369,8 +454,8 @@ shinyApp(
     output[["jobs_n_cpus"]] <- renderPlotly({
       if ( !is.null(input[["nodes_rows_selected"]]) ) {
         selected_row <- input[["nodes_rows_selected"]]
-        jobs <- strsplit(data()[["nodes"]][selected_row,"jobs"], split = ",")[[1]]
-        to_plot <- data()[["jobs"]] %>%
+        jobs <- strsplit(data_nodes$data[selected_row,"jobs"], split = ",")[[1]]
+        to_plot <- data_jobs$data %>%
           dplyr::filter(id %in% jobs) %>%
           dplyr::mutate(
             n_cpu_requested = as.numeric(n_cpu_requested),
@@ -444,7 +529,7 @@ shinyApp(
           )
         )
       } else {
-        to_plot <- data()[["jobs"]] %>%
+        to_plot <- data_jobs$data %>%
           dplyr::mutate(
             n_cpu_requested = as.numeric(n_cpu_requested),
             n_cpu_used = as.numeric(n_cpu_used)
@@ -522,8 +607,8 @@ shinyApp(
     output[["jobs_memory"]] <- renderPlotly({
       if ( !is.null(input[["nodes_rows_selected"]]) ) {
         selected_row <- input[["nodes_rows_selected"]]
-        jobs <- strsplit(data()[["nodes"]][selected_row,"jobs"], split = ",")[[1]]
-        to_plot <- data()[["jobs"]] %>%
+        jobs <- strsplit(data_nodes$data[selected_row,"jobs"], split = ",")[[1]]
+        to_plot <- data_jobs$data %>%
           dplyr::filter(id %in% jobs) %>%
           dplyr::mutate(
             mem_requested_not_formatted = as.numeric(mem_requested_not_formatted) / 1000000000,
@@ -548,6 +633,7 @@ shinyApp(
             "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
             "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
             "<b>User</b>: ", to_plot[ , "user" ], "<br>",
+            "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
             "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
             "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
             "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
@@ -571,6 +657,7 @@ shinyApp(
             "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
             "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
             "<b>User</b>: ", to_plot[ , "user" ], "<br>",
+            "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
             "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
             "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
             "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
@@ -602,7 +689,7 @@ shinyApp(
           )
         )
       } else {
-        to_plot <- data()[["jobs"]] %>%
+        to_plot <- data_jobs$data %>%
           dplyr::mutate(
             mem_requested_not_formatted = as.numeric(mem_requested_not_formatted) / 1000000000,
             mem_used_not_formatted = as.numeric(mem_used_not_formatted) / 1000000000
@@ -626,6 +713,7 @@ shinyApp(
             "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
             "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
             "<b>User</b>: ", to_plot[ , "user" ], "<br>",
+            "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
             "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
             "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
             "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
@@ -649,6 +737,7 @@ shinyApp(
             "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
             "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
             "<b>User</b>: ", to_plot[ , "user" ], "<br>",
+            "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
             "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
             "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
             "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
@@ -682,12 +771,97 @@ shinyApp(
       }
     })
 
+    output[["jobs_n_cpus_free_in_time"]] <- renderPlotly({
+      if ( nrow(data_nodes_n_cpu_in_time$data) >= 1 ) {
+        to_plot <- data_nodes_n_cpu_in_time$data
+        plotly::plot_ly(
+          to_plot,
+          x = ~time,
+          y = ~value,
+          color = ~node,
+          colors = getPalette(length(unique(to_plot$node))),
+          mode = "lines+markers",
+          hoverinfo = "text",
+          text = ~paste(
+            "<b>Time</b>: ", to_plot[ , "time" ], "<br>",
+            "<b>Node</b>: ", to_plot[ , "node" ], "<br>",
+            "<b>Number of free CPUs</b>: ", to_plot[ , "value" ], "<br>"
+          ),
+          marker = list(
+            size = 10,
+            opacity = 0.5
+          ),
+          line = list(
+            opacity = 0.5
+          )
+        ) %>%
+        layout(
+          title = "",
+          xaxis = list(
+            title = "",
+            mirror = TRUE,
+            showline = TRUE,
+            zeroline = FALSE
+          ),
+          yaxis = list(
+            title = "Number of free CPUs",
+            mirror = TRUE,
+            showline = TRUE,
+            zeroline = FALSE
+          )
+        )
+      }
+    })
+
+    output[["jobs_memory_free_in_time"]] <- plotly::renderPlotly({
+      if ( nrow(data_nodes_memory_in_time$data) >= 1 ) {
+        to_plot <- data_nodes_memory_in_time$data
+        plotly::plot_ly(
+          to_plot,
+          x = ~time,
+          y = ~value,
+          color = ~node,
+          colors = getPalette(length(unique(to_plot$node))),
+          mode = "lines+markers",
+          hoverinfo = "text",
+          text = ~paste(
+            "<b>Time</b>: ", to_plot[ , "time" ], "<br>",
+            "<b>Node</b>: ", to_plot[ , "node" ], "<br>",
+            "<b>Free memory [GB]</b>: ", to_plot[ , "value" ], "<br>"
+          ),
+          marker = list(
+            size = 10,
+            opacity = 0.5
+          ),
+          line = list(
+            opacity = 0.5
+          )
+        ) %>%
+        layout(
+          title = "",
+          xaxis = list(
+            title = "",
+            mirror = TRUE,
+            showline = TRUE,
+            zeroline = FALSE
+          ),
+          yaxis = list(
+            title = "Free memory [GB]",
+            mirror = TRUE,
+            showline = TRUE,
+            zeroline = FALSE
+          )
+        )
+      }
+    })
+
   }
 )
 
 # * prevent error if job finished while loading details
 # * make functions faster
 # * dummy data set for testing and sharing
+# * combine data for time series in one object?
 
 
 
