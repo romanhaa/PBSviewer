@@ -109,28 +109,18 @@ shinyApp(
 
     data_jobs <- reactiveValues(data = readRDS("getJobDetails_data.rds"))
     data_nodes <- reactiveValues(data = readRDS("getNodeDetails_data.rds"))
-    data_nodes_n_cpu_in_time_temp <- reactiveValues(data = data.frame(
+    data_nodes_time_series_temp <- reactiveValues(data = data.frame(
       "time" = as.POSIXct(character()),
       "node" = character(),
-      "value" = numeric(),
+      "n_cpu" = numeric(),
+      "memory" = numeric(),
       stringsAsFactors = FALSE
     ))
-    data_nodes_n_cpu_in_time <- reactiveValues(data = data.frame(
+    data_nodes_time_series <- reactiveValues(data = data.frame(
       "time" = as.POSIXct(character()),
       "node" = character(),
-      "value" = numeric(),
-      stringsAsFactors = FALSE
-    ))
-    data_nodes_memory_in_time_temp <- reactiveValues(data = data.frame(
-      "time" = as.POSIXct(character()),
-      "node" = character(),
-      "value" = numeric(),
-      stringsAsFactors = FALSE
-    ))
-    data_nodes_memory_in_time <- reactiveValues(data = data.frame(
-      "time" = as.POSIXct(character()),
-      "node" = character(),
-      "value" = numeric(),
+      "n_cpu" = numeric(),
+      "memory" = numeric(),
       stringsAsFactors = FALSE
     ))
 
@@ -162,8 +152,7 @@ shinyApp(
         on.exit(progress$close())
         progress$set(message = "Collecting new data... please have some patience.", value = 0)
         data_nodes$data <- getNodeDetails(input[["user"]], input[["host"]])
-        data_nodes_n_cpu_in_time_temp$data <- getNewTimePointCPU(data_nodes$data)
-        data_nodes_memory_in_time_temp$data <- getNewTimePointMemory(data_nodes$data)
+        data_nodes_time_series_temp$data <- getNewTimePoint(data_nodes$data)
       }
     })
 
@@ -185,8 +174,7 @@ shinyApp(
 
     observe({
       message(paste0(Sys.time(), " - Refresh data for time series..."))
-      data_nodes_n_cpu_in_time$data <- rbind(isolate(data_nodes_n_cpu_in_time$data), data_nodes_n_cpu_in_time_temp$data)
-      data_nodes_memory_in_time$data <- rbind(isolate(data_nodes_memory_in_time$data), data_nodes_memory_in_time_temp$data)
+      data_nodes_time_series$data <- rbind(isolate(data_nodes_time_series$data), data_nodes_time_series_temp$data)
     })
 
     jobs_color_status <- function(x) {
@@ -456,152 +444,81 @@ shinyApp(
         selected_row <- input[["nodes_rows_selected"]]
         jobs <- strsplit(data_nodes$data[selected_row,"jobs"], split = ",")[[1]]
         to_plot <- data_jobs$data %>%
-          dplyr::filter(id %in% jobs) %>%
-          dplyr::mutate(
-            n_cpu_requested = as.numeric(n_cpu_requested),
-            n_cpu_used = as.numeric(n_cpu_used)
-          ) %>%
-          replace(is.na(.), 0)
-        to_plot$id <- factor(as.numeric(to_plot$id))
-
-        to_plot %>%
-        plot_ly() %>%
-        add_trace(
-          x = ~id,
-          y = ~n_cpu_requested,
-          name = "requested",
-          type = "bar",
-          hoverinfo = "text",
-          text = ~paste(
-            "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-            "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-            "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-            "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-            "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-            "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-            "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
-          ),
-          marker = list(
-            color = "#e67e22",
-            line = list(
-              color = "#d35400",
-              width = 1.5
-            )
-          )
-        ) %>%
-        add_trace(
-          x = ~id,
-          y = ~n_cpu_used,
-          name = "used",
-          type = "bar",
-          hoverinfo = "text",
-          text = ~paste(
-            "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-            "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-            "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-            "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-            "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-            "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-            "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
-          ),
-          marker = list(
-            color = "#f1c40f",
-            line = list(
-              color = "#f39c12",
-              width = 1.5
-            )
-          )
-        ) %>%
-        layout(
-          title = "",
-          barmode = "group",
-          xaxis = list(
-            title = "",
-            mirror = TRUE,
-            showline = TRUE,
-            zeroline = FALSE
-          ),
-          yaxis = list(
-            title = "# of CPUs",
-            mirror = TRUE,
-            showline = TRUE,
-            zeroline = FALSE
-          )
-        )
+          dplyr::filter(id %in% jobs)
       } else {
-        to_plot <- data_jobs$data %>%
-          dplyr::mutate(
-            n_cpu_requested = as.numeric(n_cpu_requested),
-            n_cpu_used = as.numeric(n_cpu_used)
-          ) %>%
-          replace(is.na(.), 0)
-        to_plot$id <- factor(as.numeric(to_plot$id))
-        
-        to_plot %>%
-        plot_ly() %>%
-        add_trace(
-          x = ~id,
-          y = ~n_cpu_requested,
-          name = "requested",
-          type = "bar",
-          hoverinfo = "text",
-          text = ~paste(
-            "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-            "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-            "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-            "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-            "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-            "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-            "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
-          ),
-          marker = list(
-            color = "#e67e22",
-            line = list(
-              color = "#d35400",
-              width = 1.5
-            )
-          )
-        ) %>%
-        add_trace(
-          x = ~id,
-          y = ~n_cpu_used,
-          name = "used",
-          type = "bar",
-          hoverinfo = "text",
-          text = ~paste(
-            "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-            "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-            "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-            "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-            "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-            "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-            "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
-          ),
-          marker = list(
-            color = "#f1c40f",
-            line = list(
-              color = "#d35400",
-              width = 1.5
-            )
-          )
-        ) %>%
-        layout(
-          title = "",
-          barmode = "group",
-          xaxis = list(
-            title = "",
-            mirror = TRUE,
-            showline = TRUE,
-            zeroline = FALSE
-          ),
-          yaxis = list(
-            title = "# of CPUs",
-            mirror = TRUE,
-            showline = TRUE,
-            zeroline = FALSE
+        to_plot <- data_jobs$data
+      }
+      to_plot <- to_plot %>%
+      dplyr::mutate(
+        n_cpu_requested = as.numeric(n_cpu_requested),
+        n_cpu_used = as.numeric(n_cpu_used)
+      ) %>%
+      replace(is.na(.), 0)
+      to_plot$id <- factor(as.numeric(to_plot$id))
+      to_plot %>%
+      plot_ly() %>%
+      add_trace(
+        x = ~id,
+        y = ~n_cpu_requested,
+        name = "requested",
+        type = "bar",
+        hoverinfo = "text",
+        text = ~paste(
+          "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
+          "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
+          "<b>User</b>: ", to_plot[ , "user" ], "<br>",
+          "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
+          "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
+          "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
+          "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
+        ),
+        marker = list(
+          color = "#e67e22",
+          line = list(
+            color = "#d35400",
+            width = 1.5
           )
         )
-      }
+      ) %>%
+      add_trace(
+        x = ~id,
+        y = ~n_cpu_used,
+        name = "used",
+        type = "bar",
+        hoverinfo = "text",
+        text = ~paste(
+          "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
+          "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
+          "<b>User</b>: ", to_plot[ , "user" ], "<br>",
+          "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
+          "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
+          "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
+          "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
+        ),
+        marker = list(
+          color = "#f1c40f",
+          line = list(
+            color = "#f39c12",
+            width = 1.5
+          )
+        )
+      ) %>%
+      layout(
+        title = "",
+        barmode = "group",
+        xaxis = list(
+          title = "",
+          mirror = TRUE,
+          showline = TRUE,
+          zeroline = FALSE
+        ),
+        yaxis = list(
+          title = "# of CPUs",
+          mirror = TRUE,
+          showline = TRUE,
+          zeroline = FALSE
+        )
+      )
     })
 
     output[["jobs_memory"]] <- renderPlotly({
@@ -609,188 +526,124 @@ shinyApp(
         selected_row <- input[["nodes_rows_selected"]]
         jobs <- strsplit(data_nodes$data[selected_row,"jobs"], split = ",")[[1]]
         to_plot <- data_jobs$data %>%
-          dplyr::filter(id %in% jobs) %>%
-          dplyr::mutate(
-            mem_requested_not_formatted = as.numeric(mem_requested_not_formatted) / 1000000000,
-            mem_used_not_formatted = as.numeric(mem_used_not_formatted) / 1000000000
-          ) %>%
-          replace(is.na(.), 0)
-        to_plot$id <- factor(as.numeric(to_plot$id))
-        if ( max(c(to_plot$mem_requested_not_formatted,to_plot$mem_used_not_formatted)) < 80 ) {
-          ymax <- 80
-        } else {
-          ymax <- max(c(to_plot$mem_requested_not_formatted,to_plot$mem_used_not_formatted)) * 1.1
-        }
-        to_plot %>%
-        plot_ly() %>%
-        add_trace(
-          x = ~id,
-          y = ~mem_requested_not_formatted,
-          name = "requested",
-          type = "bar",
-          hoverinfo = "text",
-          text = ~paste(
-            "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-            "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-            "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-            "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
-            "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-            "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-            "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-            "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
-          ),
-          marker = list(
-            color = "#e67e22",
-            line = list(
-              color = "#d35400",
-              width = 1.5
-            )
-          )
-        ) %>%
-        add_trace(
-          x = ~id,
-          y = ~mem_used_not_formatted,
-          name = "used",
-          type = "bar",
-          hoverinfo = "text",
-          text = ~paste(
-            "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-            "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-            "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-            "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
-            "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-            "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-            "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-            "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
-          ),
-          marker = list(
-            color = "#f1c40f",
-            line = list(
-              color = "#f39c12",
-              width = 1.5
-            )
-          )
-        ) %>%
-        layout(
-          title = "",
-          barmode = "group",
-          xaxis = list(
-            title = "",
-            mirror = TRUE,
-            showline = TRUE,
-            zeroline = FALSE
-          ),
-          yaxis = list(
-            title = "Memory [GB]",
-            mirror = TRUE,
-            showline = TRUE,
-            zeroline = FALSE,
-            range = c(0, ymax)
-          )
-        )
+          dplyr::filter(id %in% jobs)
       } else {
-        to_plot <- data_jobs$data %>%
-          dplyr::mutate(
-            mem_requested_not_formatted = as.numeric(mem_requested_not_formatted) / 1000000000,
-            mem_used_not_formatted = as.numeric(mem_used_not_formatted) / 1000000000
-          ) %>%
-          replace(is.na(.), 0)
-        to_plot$id <- factor(as.numeric(to_plot$id))
-        if ( max(c(to_plot$mem_requested_not_formatted,to_plot$mem_used_not_formatted)) < 80 ) {
-          ymax <- 80
-        } else {
-          ymax <- max(c(to_plot$mem_requested_not_formatted,to_plot$mem_used_not_formatted)) * 1.1
-        }
-        to_plot %>%
-        plot_ly() %>%
-        add_trace(
-          x = ~id,
-          y = ~mem_requested_not_formatted,
-          name = "requested",
-          type = "bar",
-          hoverinfo = "text",
-          text = ~paste(
-            "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-            "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-            "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-            "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
-            "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-            "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-            "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-            "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
-          ),
-          marker = list(
-            color = "#e67e22",
-            line = list(
-              color = "#d35400",
-              width = 1.5
-            )
-          )
-        ) %>%
-        add_trace(
-          x = ~id,
-          y = ~mem_used_not_formatted,
-          name = "used",
-          type = "bar",
-          hoverinfo = "text",
-          text = ~paste(
-            "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-            "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-            "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-            "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
-            "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-            "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-            "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-            "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
-          ),
-          marker = list(
-            color = "#f1c40f",
-            line = list(
-              color = "#f39c12",
-              width = 1.5
-            )
-          )
-        ) %>%
-        layout(
-          title = "",
-          barmode = "group",
-          xaxis = list(
-            title = "",
-            mirror = TRUE,
-            showline = TRUE,
-            zeroline = FALSE
-          ),
-          yaxis = list(
-            title = "Memory [GB]",
-            mirror = TRUE,
-            showline = TRUE,
-            zeroline = FALSE,
-            range = c(0, ymax)
+        to_plot <- data_jobs$data
+      }
+      to_plot <- to_plot %>%
+      dplyr::mutate(
+        mem_requested_not_formatted = as.numeric(mem_requested_not_formatted) / 1000000000,
+        mem_used_not_formatted = as.numeric(mem_used_not_formatted) / 1000000000
+      ) %>%
+      replace(is.na(.), 0)
+      to_plot$id <- factor(as.numeric(to_plot$id))
+      if ( max(c(to_plot$mem_requested_not_formatted,to_plot$mem_used_not_formatted)) < 80 ) {
+        ymax <- 80
+      } else {
+        ymax <- max(c(to_plot$mem_requested_not_formatted,to_plot$mem_used_not_formatted)) * 1.1
+      }
+      to_plot %>%
+      plot_ly() %>%
+      add_trace(
+        x = ~id,
+        y = ~mem_requested_not_formatted,
+        name = "requested",
+        type = "bar",
+        hoverinfo = "text",
+        text = ~paste(
+          "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
+          "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
+          "<b>User</b>: ", to_plot[ , "user" ], "<br>",
+          "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
+          "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
+          "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
+          "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
+          "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
+        ),
+        marker = list(
+          color = "#e67e22",
+          line = list(
+            color = "#d35400",
+            width = 1.5
           )
         )
-      }
+      ) %>%
+      add_trace(
+        x = ~id,
+        y = ~mem_used_not_formatted,
+        name = "used",
+        type = "bar",
+        hoverinfo = "text",
+        text = ~paste(
+          "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
+          "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
+          "<b>User</b>: ", to_plot[ , "user" ], "<br>",
+          "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
+          "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
+          "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
+          "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
+          "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
+        ),
+        marker = list(
+          color = "#f1c40f",
+          line = list(
+            color = "#f39c12",
+            width = 1.5
+          )
+        )
+      ) %>%
+      layout(
+        title = "",
+        barmode = "group",
+        xaxis = list(
+          title = "",
+          mirror = TRUE,
+          showline = TRUE,
+          zeroline = FALSE
+        ),
+        yaxis = list(
+          title = "Memory [GB]",
+          mirror = TRUE,
+          showline = TRUE,
+          zeroline = FALSE,
+          range = c(0, ymax)
+        )
+      )
     })
 
     output[["jobs_n_cpus_free_in_time"]] <- renderPlotly({
-      if ( nrow(data_nodes_n_cpu_in_time$data) >= 1 ) {
-        to_plot <- data_nodes_n_cpu_in_time$data
+      if ( nrow(data_nodes_time_series$data) >= 1 ) {
+        if ( !is.null(input[["nodes_rows_selected"]]) ) {
+          selected_row <- input[["nodes_rows_selected"]]
+          node_to_show <- data_nodes_time_series$data[selected_row,"node"]
+          to_plot <- data_nodes_time_series$data %>%
+            dplyr::filter(node == node_to_show)
+        } else {
+          to_plot <- data_nodes_time_series$data
+        }
+        if ( length(unique(to_plot$time)) <= 20 ) {
+          style <- "lines+markers"
+          markers <- list(size = 10, opacity = 0.5)
+        } else {
+          style <- "lines+markers"
+          markers <- list(size = 3, opacity = 0.5)
+        }
         plotly::plot_ly(
           to_plot,
           x = ~time,
-          y = ~value,
+          y = ~n_cpu,
           color = ~node,
           colors = getPalette(length(unique(to_plot$node))),
-          mode = "lines+markers",
+          mode = style,
+          type = "scatter",
           hoverinfo = "text",
           text = ~paste(
             "<b>Time</b>: ", to_plot[ , "time" ], "<br>",
             "<b>Node</b>: ", to_plot[ , "node" ], "<br>",
-            "<b>Number of free CPUs</b>: ", to_plot[ , "value" ], "<br>"
+            "<b>Number of free CPUs</b>: ", to_plot[ , "n_cpu" ], "<br>",
+            "<b>Free memory [GB]</b>: ", to_plot[ , "memory" ], "<br>"
           ),
-          marker = list(
-            size = 10,
-            opacity = 0.5
-          ),
+          marker = markers,
           line = list(
             opacity = 0.5
           )
@@ -814,25 +667,38 @@ shinyApp(
     })
 
     output[["jobs_memory_free_in_time"]] <- plotly::renderPlotly({
-      if ( nrow(data_nodes_memory_in_time$data) >= 1 ) {
-        to_plot <- data_nodes_memory_in_time$data
+      if ( nrow(data_nodes_time_series$data) >= 1 ) {
+        if ( !is.null(input[["nodes_rows_selected"]]) ) {
+          selected_row <- input[["nodes_rows_selected"]]
+          node_to_show <- data_nodes_time_series$data[selected_row,"node"]
+          to_plot <- data_nodes_time_series$data %>%
+            dplyr::filter(node == node_to_show)
+        } else {
+          to_plot <- data_nodes_time_series$data
+        }
+        if ( length(unique(to_plot$time)) <= 2 ) {
+          style <- "lines+markers"
+          markers <- list(size = 10, opacity = 0.5)
+        } else {
+          style <-  "lines+markers"
+          markers <- list(size = 3, opacity = 0.5)
+        }
         plotly::plot_ly(
           to_plot,
           x = ~time,
-          y = ~value,
+          y = ~memory,
           color = ~node,
           colors = getPalette(length(unique(to_plot$node))),
-          mode = "lines+markers",
+          mode = style,
+          type = "scatter",
           hoverinfo = "text",
           text = ~paste(
             "<b>Time</b>: ", to_plot[ , "time" ], "<br>",
             "<b>Node</b>: ", to_plot[ , "node" ], "<br>",
-            "<b>Free memory [GB]</b>: ", to_plot[ , "value" ], "<br>"
+            "<b>Number of free CPUs</b>: ", to_plot[ , "n_cpu" ], "<br>",
+            "<b>Free memory [GB]</b>: ", to_plot[ , "memory" ], "<br>"
           ),
-          marker = list(
-            size = 10,
-            opacity = 0.5
-          ),
+          marker = markers,
           line = list(
             opacity = 0.5
           )
@@ -858,11 +724,9 @@ shinyApp(
   }
 )
 
-# * prevent error if job finished while loading details
 # * make functions faster
 # * dummy data set for testing and sharing
-# * combine data for time series in one object?
-
+# * allow to select multiple nodes?
 
 
 

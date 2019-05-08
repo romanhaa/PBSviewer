@@ -28,43 +28,25 @@ testConnection <- function(user, host) {
   )
 }
 
-getNewTimePointCPU <- function(x) {
+getNewTimePoint <- function(x) {
   current_time <- as.POSIXct(Sys.time())
   new_table <- data.frame(
     "time" = as.POSIXct(character()),
     "node" = character(),
-    "value" = numeric(),
+    "n_cpu" = numeric(),
+    "memory" = numeric(),
     stringsAsFactors = FALSE
   )
   for ( i in 1:length(x$node) ) {
     current_node <- x$node[i]
+    current_n_cpu <- strsplit(x$n_cpus_free[which(x$node == current_node)], split = "/")[[1]][1]
+    current_memory <- gsub(x$memory_free[which(x$node == current_node)], pattern = "gb", replacement = "")
+    current_memory <- strsplit(current_memory, split = "/")[[1]][1]
     new_entry <- data.frame(
       "time" = current_time,
       "node" = current_node,
-      "value" = as.numeric(strsplit(x$n_cpus_free[which(x$node == current_node)], split = "/")[[1]][1]),
-      stringsAsFactors = FALSE
-    )
-    new_table <- rbind(new_table, new_entry)
-  }
-  return(new_table)
-}
-
-getNewTimePointMemory <- function(x) {
-  current_time <- as.POSIXct(Sys.time())
-  new_table <- data.frame(
-    "time" = as.POSIXct(character()),
-    "node" = character(),
-    "value" = numeric(),
-    stringsAsFactors = FALSE
-  )
-  for ( i in 1:length(x$node) ) {
-    current_node <- x$node[i]
-    current_value <- gsub(x$memory_free[which(x$node == current_node)], pattern = "gb", replacement = "")
-    current_value <- strsplit(current_value, split = "/")[[1]][1]
-    new_entry <- data.frame(
-      "time" = current_time,
-      "node" = current_node,
-      "value" = as.numeric(current_value),
+      "n_cpu" = as.numeric(current_n_cpu),
+      "memory" = as.numeric(current_memory),
       stringsAsFactors = FALSE
     )
     new_table <- rbind(new_table, new_entry)
@@ -128,8 +110,7 @@ getJobDetails <- function(user, host) {
     mc.preschedule = TRUE
   )
   #message(paste0(Sys.time(), " - Step 2: Done."))
-  extinct_jobs <- which(is.na(temp_data))
-  temp_data <- temp_data[-extinct_jobs]
+  temp_data <- temp_data[which(!is.na(temp_data))]
   job_names <- rep(NA, length(temp_data))
   for ( i in 1:length(temp_data) ) {
     position_of_variable_List <- grep(temp_data[[i]][,1], pattern = "Variable_List")
