@@ -2,15 +2,27 @@
 
 Shiny app that can visualize details of PBS job scheduler.
 
+## How to run
+
 Download/clone repository, navigate inside the main folder and run:
 
 ```r
-runApp("PBSviewer.R")
+shiny::runApp("PBSviewer.R")
 ```
+
+## Requirements
+
+* `shiny`
+* `shinydashboard`
+* `plotly`
+* `formattable`
+* `tidyverse`
+
+## Does it work with my scheduler?
 
 Might be adaptable to similar job scheduler with some work.
 
-# Expected data from scheduler
+### Expected data from scheduler
 
 List of current jobs.
 
