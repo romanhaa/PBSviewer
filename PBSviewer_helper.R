@@ -37,6 +37,7 @@ getNewTimePoint <- function(x) {
     "memory" = numeric(),
     stringsAsFactors = FALSE
   )
+  x <- filter(x, !node %in% c("cn13","cn14","hpcfe02"))
   for ( i in 1:length(x$node) ) {
     current_node <- x$node[i]
     current_n_cpu <- strsplit(x$n_cpus_free[which(x$node == current_node)], split = "/")[[1]][1]

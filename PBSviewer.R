@@ -7,8 +7,8 @@ shinyApp(
     dashboardSidebar(
       sidebarMenu(
         tags$head(tags$style(HTML(".content-wrapper {overflow-x: scroll;}"))),
-        menuItem("Load data", tabName = "load_data", icon = icon("spinner")),
-        menuItem("Jobs", tabName = "jobs", icon = icon("angle-right"), selected = TRUE),
+        menuItem("Load data", tabName = "load_data", icon = icon("spinner"), selected = TRUE),
+        menuItem("Jobs", tabName = "jobs", icon = icon("angle-right")),
         menuItem("Nodes", tabName = "nodes", icon = icon("server")),
         menuItem("About", tabName = "about", icon = icon("info"))
       )
