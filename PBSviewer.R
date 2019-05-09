@@ -7,9 +7,10 @@ shinyApp(
     dashboardSidebar(
       sidebarMenu(
         tags$head(tags$style(HTML(".content-wrapper {overflow-x: scroll;}"))),
-        menuItem("Load data", tabName = "load_data", icon = icon("dashboard")),
-        menuItem("Jobs", tabName = "jobs", icon = icon("dashboard"), selected = TRUE),
-        menuItem("Nodes", tabName = "nodes", icon = icon("th"))
+        menuItem("Load data", tabName = "load_data", icon = icon("spinner")),
+        menuItem("Jobs", tabName = "jobs", icon = icon("angle-right"), selected = TRUE),
+        menuItem("Nodes", tabName = "nodes", icon = icon("server")),
+        menuItem("About", tabName = "about", icon = icon("info"))
       )
     ),
     dashboardBody(
@@ -20,6 +21,7 @@ shinyApp(
           fluidPage(
             fluidRow(
               column(12,
+                titlePanel("Load data"),
                 textInput(
                   "user",
                   label = "User",
@@ -44,6 +46,7 @@ shinyApp(
           fluidPage(
             fluidRow(
               column(12,
+                titlePanel("Details by job"),
                 DT::dataTableOutput("jobs")
               )
             ),
@@ -62,6 +65,7 @@ shinyApp(
           fluidPage(
             fluidRow(
               column(12,
+                titlePanel("Details by node"),
                 DT::dataTableOutput("nodes")
               )
             ),
@@ -97,6 +101,16 @@ shinyApp(
               width = 12,
               collapsible = TRUE,
               plotlyOutput("jobs_memory_free_in_time")
+            )
+          )
+        ),
+        tabItem(tabName = "about",
+          fluidPage(
+            fluidRow(
+              column(12,
+                titlePanel("About this application"),
+                htmlOutput("about")
+              )
             )
           )
         )
@@ -719,6 +733,18 @@ shinyApp(
           )
         )
       }
+    })
+
+    output[["about"]] <- renderText({
+      '<b>Author:</b><br>
+      Roman Hillje<br>
+      Department of Experimental Oncology<br>
+      IEO, European Institute of Oncology IRCCS, Milan<br>
+      <br>
+      <b>Links:</b><br>
+      <ul>
+        <li><a href=https://github.com/romanhaa/PBSviewer title="PBSviewer repository on GitHub" target="_blank"><b>PBSviewer repository on GitHub</b></a></li>
+      </ul>'
     })
 
   }
