@@ -218,7 +218,27 @@ shinyApp(
       }
       return(colors)
     }
-    
+
+    # jobs_n_cpus_color = function(x) {
+    #   x <- gsub(data_nodes$data$memory_free, pattern = "gb", replacement = "")
+    #   out <- x
+    #   for ( i in 1:length(out) ) {
+    #     values <- strsplit(x[i], split = "/")[[1]]
+    #     out[i] <- 1.0 - (as.double(values[1]) / as.double(values[2]))
+    #   }
+    #   return(out)
+    # }
+
+    # jobs_memory_color = function(x) {
+    #   x <- gsub(data_nodes$data$memory_free, pattern = "gb", replacement = "")
+    #   out <- x
+    #   for ( i in 1:length(out) ) {
+    #     values <- strsplit(x[i], split = "/")[[1]]
+    #     out[i] <- 1.0 - (as.double(values[1]) / as.double(values[2]))
+    #   }
+    #   return(out)
+    # }
+
     output[["jobs"]] <- DT::renderDataTable({
       table <- formattable(
         data_jobs$data,
@@ -358,7 +378,7 @@ shinyApp(
         showlegend = FALSE
       )
     })
-    
+
     nodes_n_cpus_scale = function(x) {
       x <- data_nodes$data$n_cpus_free
       out <- x
@@ -368,7 +388,7 @@ shinyApp(
       }
       return(out)
     }
-    
+
     nodes_memory_scale = function(x) {
       x <- gsub(data_nodes$data$memory_free, pattern = "gb", replacement = "")
       out <- x
@@ -378,17 +398,7 @@ shinyApp(
       }
       return(out)
     }
-    
-    jobs_memory_color = function(x) {
-      x <- gsub(data_nodes$data$memory_free, pattern = "gb", replacement = "")
-      out <- x
-      for ( i in 1:length(out) ) {
-        values <- strsplit(x[i], split = "/")[[1]]
-        out[i] <- 1.0 - (as.double(values[1]) / as.double(values[2]))
-      }
-      return(out)
-    }
-    
+
     output[["nodes"]] <- DT::renderDataTable({
       table <- data_nodes$data %>%
       formattable(
