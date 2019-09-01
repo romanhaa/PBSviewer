@@ -82,23 +82,12 @@ Job Id: <job_id>
     session_id = 15962
     jobdir = <some_path>
     substate = 42
-    Variable_List = PBS_O_SYSTEM=Linux,PBS_O_SHELL=/bin/bash,
-        PBS_O_HOME=/hpcnfs/home/ieo4615,PBS_O_LOGNAME=ieo4615,
-        PBS_O_WORKDIR=/hpcnfs/data/MS/gsambrun/pathseq_tools/work/7c/251eb4aea
-        975b67ffc899eee5adc00,PBS_O_LANG=en_US.UTF-8,
-        PBS_O_PATH=/hpcnfs/data/BA/ocroci/cellranger10x/cellranger-2.1.1/:/hpc
-        nfs/software/singularity/2.6.0/bin/:/hpcnfs/home/ieo4615/sratoolkit.2.9
-        .0-centos_linux64/bin:/hpcnfs/software/anaconda/anaconda2/bin:/opt/xcat
-        /bin:/opt/xcat/sbin:/opt/xcat/share/xcat/tools:/hpcnfs/software/bin:/us
-        r/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/o
-        pt/pbs/bin:/hpcnfs/home/ieo4615/.local/bin:/hpcnfs/home/ieo4615/bin,
-        PBS_O_MAIL=/var/spool/mail/ieo4615,PBS_O_QUEUE=workq,
-        PBS_O_HOST=hpcfe01.cluster.loc
+    Variable_List = <...>
     comment = Job run at Tue May 07 at 09:31 on (cn02:ncpus=16)
     etime = Tue May  7 09:31:20 2019
     umask = 22
     run_count = 1
-    Submit_arguments = -N nf-pathseq_25 .command.run
+    Submit_arguments = <...>
     project = _pbs_project_default
 ```
 
@@ -111,25 +100,3 @@ These places might have to be adjusted, including:
 
 * Units (`kb`,`mb`,`gb`).
 * `hpcfe01` might show up here and there as that's our server.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
