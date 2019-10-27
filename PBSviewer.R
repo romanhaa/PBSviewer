@@ -204,7 +204,7 @@ shinyApp(
       }
       return(colors)
     }
-    
+
     jobs_color_queue <- function(x) {
       colors <- rep(NA, length(x))
       for ( i in 1:length(x) ) {
@@ -252,7 +252,7 @@ shinyApp(
                 display            = "block",
                 padding            = "0 4px",
                 `border-radius`    = "4px",
-                `background-color` = csscolor(gradient(as.numeric(data_jobs$data$mem_requested_not_formatted), "white", "pink"))
+                `background-color` = csscolor(gradient(as.numeric(data_jobs$data$mem_requested_numeric), "white", "pink"))
               )
             }
           ),
@@ -263,7 +263,7 @@ shinyApp(
                 display            = "block",
                 padding            = "0 4px",
                 `border-radius`    = "4px",
-                `background-color` = csscolor(gradient(as.numeric(data_jobs$data$mem_used_not_formatted), "white", "pink"))
+                `background-color` = csscolor(gradient(as.numeric(data_jobs$data$mem_used_numeric), "white", "pink"))
               )
             }
           ),
@@ -274,7 +274,7 @@ shinyApp(
                 display            = "block",
                 padding            = "0 4px",
                 `border-radius`    = "4px",
-                `background-color` = csscolor(gradient(as.numeric(data_jobs$data$vmem_used_not_formatted), "white", "pink"))
+                `background-color` = csscolor(gradient(as.numeric(data_jobs$data$vmem_used_numeric), "white", "pink"))
               )
             }
           )
@@ -289,12 +289,12 @@ shinyApp(
         class = "cell-border stripe",
         extensions = c("Buttons"),
         options = list(
-          columnDefs = list(
-            list(
-              visible = FALSE,
-              targets = c(5,7,9,13,15,17)
-            )
-          ),
+          # columnDefs = list(
+          #   list(
+          #     visible = FALSE,
+          #     targets = c(5,7,9,13,15,17)
+          #   )
+          # ),
           scrollX = TRUE,
           dom = "Bfrtip",
           paging = FALSE,
@@ -308,14 +308,14 @@ shinyApp(
         textAlign = "left"
       ) %>%
       DT::formatStyle(
-        columns = c("cpu_time_used", "cpu_percent", "n_cpu_requested", "n_cpu_used", "mem_requested", "mem_used", "vmem_used", "mem_requested_not_formatted", "mem_used_not_formatted", "vmem_used_not_formatted"),
+        columns = c("cpu_time_used", "cpu_percent", "n_cpu_requested", "n_cpu_used", "mem_requested", "mem_used", "vmem_used", "mem_requested_numeric", "mem_used_numeric", "vmem_used_numeric"),
         textAlign = "right"
       ) %>%
       DT::formatStyle(
         columns = colnames(data_jobs$data), fontSize = "85%"
       )
 
-      table$x$data$id <- as.numeric(table$x$data$id)
+      table$x$data$id <- table$x$data$id
       table$x$data$cpu_percent <- as.numeric(table$x$data$cpu_percent)
       table$x$data$n_cpu_requested <- as.numeric(table$x$data$n_cpu_requested)
       table$x$data$n_cpu_used <- as.numeric(table$x$data$n_cpu_used)
@@ -325,19 +325,18 @@ shinyApp(
 
     output[["jobs_n_cpu_over_memory"]] <- plotly::renderPlotly({
       to_plot <- data_jobs$data %>%
-        dplyr::select(id, name, user, n_cpu_requested, n_cpu_used, mem_requested, mem_used, mem_used_not_formatted) %>%
+        dplyr::select(id, name, user, n_cpu_requested, n_cpu_used, mem_requested, mem_used, mem_used_numeric) %>%
         dplyr::mutate(
           n_cpu_used = as.numeric(n_cpu_used),
-          mem_used_not_formatted = as.numeric(mem_used_not_formatted) / 1000000000
+          mem_used_numeric = as.numeric(mem_used_numeric) / 1000000000
         ) %>%
         replace(is.na(.), 0)
-      to_plot$id <- factor(as.numeric(to_plot$id))
-      
+
       plotly::plot_ly(
         data = to_plot,
         type = "scatter",
         mode = "markers",
-        x = ~mem_used_not_formatted,
+        x = ~mem_used_numeric,
         y = ~n_cpu_used,
         color = ~user,
         colors = getPalette(length(unique(to_plot$user))),
@@ -351,13 +350,13 @@ shinyApp(
         ),
         hoverinfo = "text",
         text = ~paste(
-          "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-          "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-          "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-          "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-          "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-          "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-          "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
+          "<b>Job ID</b>: ", to_plot$id, "<br>",
+          "<b>Job Name</b>: ", to_plot$name, "<br>",
+          "<b>User</b>: ", to_plot$user, "<br>",
+          "<b># of CPUs requested</b>: ", to_plot$n_cpu_requested, "<br>",
+          "<b># of CPUs used</b>: ", to_plot$n_cpu_used, "<br>",
+          "<b>Memory requested</b>: ", to_plot$mem_requested, "<br>",
+          "<b>Memory used</b>: ", to_plot$mem_used, "<br>"
         )
       ) %>%
       plotly::layout(
@@ -449,17 +448,17 @@ shinyApp(
             "colvis"
           )
         )
-      ) %>% 
+      ) %>%
       DT::formatStyle(
         columns = c("n_jobs","memory_free","n_cpus_free"),
         textAlign = "right"
-      ) %>% 
+      ) %>%
       DT::formatStyle(
         columns = colnames(data_nodes$data), fontSize = "85%"
       )
 
       table$x$data$n_jobs <- as.numeric(table$x$data$n_jobs)
-      
+
       return(table)
     })
 
@@ -473,12 +472,11 @@ shinyApp(
         to_plot <- data_jobs$data
       }
       to_plot <- to_plot %>%
-      dplyr::mutate(
-        n_cpu_requested = as.numeric(n_cpu_requested),
-        n_cpu_used = as.numeric(n_cpu_used)
-      ) %>%
-      replace(is.na(.), 0)
-      to_plot$id <- factor(as.numeric(to_plot$id))
+        dplyr::mutate(
+          n_cpu_requested = as.numeric(n_cpu_requested),
+          n_cpu_used = as.numeric(n_cpu_used)
+        ) %>%
+        replace(is.na(.), 0)
       to_plot %>%
       plot_ly() %>%
       add_trace(
@@ -488,13 +486,13 @@ shinyApp(
         type = "bar",
         hoverinfo = "text",
         text = ~paste(
-          "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-          "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-          "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-          "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-          "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-          "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-          "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
+          "<b>Job ID</b>: ", to_plot$id, "<br>",
+          "<b>Job Name</b>: ", to_plot$name, "<br>",
+          "<b>User</b>: ", to_plot$user, "<br>",
+          "<b># of CPUs requested</b>: ", to_plot$n_cpu_requested, "<br>",
+          "<b># of CPUs used</b>: ", to_plot$n_cpu_used, "<br>",
+          "<b>Memory requested</b>: ", to_plot$mem_requested, "<br>",
+          "<b>Memory used</b>: ", to_plot$mem_used, "<br>"
         ),
         marker = list(
           color = "#e67e22",
@@ -511,13 +509,13 @@ shinyApp(
         type = "bar",
         hoverinfo = "text",
         text = ~paste(
-          "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-          "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-          "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-          "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-          "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-          "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-          "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
+          "<b>Job ID</b>: ", to_plot$id, "<br>",
+          "<b>Job Name</b>: ", to_plot$name, "<br>",
+          "<b>User</b>: ", to_plot$user, "<br>",
+          "<b># of CPUs requested</b>: ", to_plot$n_cpu_requested, "<br>",
+          "<b># of CPUs used</b>: ", to_plot$n_cpu_used, "<br>",
+          "<b>Memory requested</b>: ", to_plot$mem_requested, "<br>",
+          "<b>Memory used</b>: ", to_plot$mem_used, "<br>"
         ),
         marker = list(
           color = "#f1c40f",
@@ -556,33 +554,32 @@ shinyApp(
       }
       to_plot <- to_plot %>%
       dplyr::mutate(
-        mem_requested_not_formatted = as.numeric(mem_requested_not_formatted) / 1000000000,
-        mem_used_not_formatted = as.numeric(mem_used_not_formatted) / 1000000000
+        mem_requested_numeric = as.numeric(mem_requested_numeric) / 1000000000,
+        mem_used_numeric = as.numeric(mem_used_numeric) / 1000000000
       ) %>%
       replace(is.na(.), 0)
-      to_plot$id <- factor(as.numeric(to_plot$id))
-      if ( max(c(to_plot$mem_requested_not_formatted,to_plot$mem_used_not_formatted)) < 80 ) {
+      if ( max(c(to_plot$mem_requested_numeric,to_plot$mem_used_numeric)) < 80 ) {
         ymax <- 80
       } else {
-        ymax <- max(c(to_plot$mem_requested_not_formatted,to_plot$mem_used_not_formatted)) * 1.1
+        ymax <- max(c(to_plot$mem_requested_numeric,to_plot$mem_used_numeric)) * 1.1
       }
       to_plot %>%
       plot_ly() %>%
       add_trace(
         x = ~id,
-        y = ~mem_requested_not_formatted,
+        y = ~mem_requested_numeric,
         name = "requested",
         type = "bar",
         hoverinfo = "text",
         text = ~paste(
-          "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-          "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-          "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-          "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
-          "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-          "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-          "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-          "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
+          "<b>Job ID</b>: ", to_plot$id, "<br>",
+          "<b>Job Name</b>: ", to_plot$name, "<br>",
+          "<b>User</b>: ", to_plot$user, "<br>",
+          "<b>Status</b>: ", to_plot$status, "<br>",
+          "<b># of CPUs requested</b>: ", to_plot$n_cpu_requested, "<br>",
+          "<b># of CPUs used</b>: ", to_plot$n_cpu_used, "<br>",
+          "<b>Memory requested</b>: ", to_plot$mem_requested, "<br>",
+          "<b>Memory used</b>: ", to_plot$mem_used, "<br>"
         ),
         marker = list(
           color = "#e67e22",
@@ -594,19 +591,19 @@ shinyApp(
       ) %>%
       add_trace(
         x = ~id,
-        y = ~mem_used_not_formatted,
+        y = ~mem_used_numeric,
         name = "used",
         type = "bar",
         hoverinfo = "text",
         text = ~paste(
-          "<b>Job ID</b>: ", to_plot[ , "id" ], "<br>",
-          "<b>Job Name</b>: ", to_plot[ , "name" ], "<br>",
-          "<b>User</b>: ", to_plot[ , "user" ], "<br>",
-          "<b>Status</b>: ", to_plot[ , "status" ], "<br>",
-          "<b># of CPUs requested</b>: ", to_plot[ , "n_cpu_requested" ], "<br>",
-          "<b># of CPUs used</b>: ", to_plot[ , "n_cpu_used" ], "<br>",
-          "<b>Memory requested</b>: ", to_plot[ , "mem_requested" ], "<br>",
-          "<b>Memory used</b>: ", to_plot[ , "mem_used" ], "<br>"
+          "<b>Job ID</b>: ", to_plot$id, "<br>",
+          "<b>Job Name</b>: ", to_plot$name, "<br>",
+          "<b>User</b>: ", to_plot$user, "<br>",
+          "<b>Status</b>: ", to_plot$status, "<br>",
+          "<b># of CPUs requested</b>: ", to_plot$n_cpu_requested, "<br>",
+          "<b># of CPUs used</b>: ", to_plot$n_cpu_used, "<br>",
+          "<b>Memory requested</b>: ", to_plot$mem_requested, "<br>",
+          "<b>Memory used</b>: ", to_plot$mem_used, "<br>"
         ),
         marker = list(
           color = "#f1c40f",
@@ -662,10 +659,10 @@ shinyApp(
           type = "scatter",
           hoverinfo = "text",
           text = ~paste(
-            "<b>Time</b>: ", to_plot[ , "time" ], "<br>",
-            "<b>Node</b>: ", to_plot[ , "node" ], "<br>",
-            "<b>Number of free CPUs</b>: ", to_plot[ , "n_cpu" ], "<br>",
-            "<b>Free memory [GB]</b>: ", to_plot[ , "memory" ], "<br>"
+            "<b>Time</b>: ", to_plot$time, "<br>",
+            "<b>Node</b>: ", to_plot$node, "<br>",
+            "<b>Number of free CPUs</b>: ", to_plot$n_cpu, "<br>",
+            "<b>Free memory [GB]</b>: ", to_plot$memory, "<br>"
           ),
           marker = markers,
           line = list(
@@ -717,10 +714,10 @@ shinyApp(
           type = "scatter",
           hoverinfo = "text",
           text = ~paste(
-            "<b>Time</b>: ", to_plot[ , "time" ], "<br>",
-            "<b>Node</b>: ", to_plot[ , "node" ], "<br>",
-            "<b>Number of free CPUs</b>: ", to_plot[ , "n_cpu" ], "<br>",
-            "<b>Free memory [GB]</b>: ", to_plot[ , "memory" ], "<br>"
+            "<b>Time</b>: ", to_plot$time, "<br>",
+            "<b>Node</b>: ", to_plot$node, "<br>",
+            "<b>Number of free CPUs</b>: ", to_plot$n_cpu, "<br>",
+            "<b>Free memory [GB]</b>: ", to_plot$memory, "<br>"
           ),
           marker = markers,
           line = list(
